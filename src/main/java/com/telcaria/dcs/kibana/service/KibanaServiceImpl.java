@@ -197,7 +197,8 @@ public class KibanaServiceImpl implements KibanaService{
     
 
     private String getUrl(String id) {
-        return kibanaProperties.getBaseUrl() + "/app/kibana#/dashboard/" + id + "?embed=true&_g=()";
+        //return kibanaProperties.getBaseUrl() + "/app/kibana#/dashboard/" + id + "?embed=true&_g=()";
+        return "https://portal.5g-eve.eu/portal/metrics/dashboard/app/kibana#/dashboard/" + id + "?embed=true&_g=()";
     }
 
 }
