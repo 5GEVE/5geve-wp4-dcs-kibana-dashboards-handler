@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Configuration;
 public class KibanaProperties {
 
     private String baseUrl;
+    private String dashboardUrl;
     //private String username;
     //private String password;
     private boolean dashboardOwnerEnabled;

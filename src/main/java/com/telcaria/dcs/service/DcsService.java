@@ -17,7 +17,11 @@
 package com.telcaria.dcs.service;
 
 import com.telcaria.dcs.nbi.wrapper.DashboardWrapper;
+import com.telcaria.dcs.nbi.wrapper.TopicsWrapper;
 import com.telcaria.dcs.nbi.wrapper.ValueWrapper;
+import com.telcaria.dcs.nbi.wrapper.elasticsearch.ElasticsearchDcsResponseWrapper;
+import com.telcaria.dcs.nbi.wrapper.elasticsearch.ElasticsearchParametersWrapper;
+import com.telcaria.dcs.elasticsearch.wrapper.ElasticsearchResponseWrapper;
 
 public interface DcsService {
 
@@ -26,6 +30,12 @@ public interface DcsService {
   DashboardWrapper getDashboardRequest(String experimentId);
 
   String deleteDashboardRequest(ValueWrapper valueWrapper);
+
+  TopicsWrapper getTopics(String experimentId, String token);
+
+  ElasticsearchDcsResponseWrapper getDataFromTopic(String experimentId, String topic,
+                                                   String token,
+                                                   ElasticsearchParametersWrapper elasticsearchParametersWrapper);
 
   void disableKibana();
 }

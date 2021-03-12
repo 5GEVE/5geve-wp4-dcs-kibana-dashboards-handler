@@ -42,6 +42,8 @@ public interface StorageService {
 
   List<Kpi> findAllKpisFromExperiment(String experimentId);
 
+  Optional<Kpi> getKpiFromExperimentAndTopic(String experimentId, String topic);
+
   void updateKpi(KpiWrapper kpiWrapper);
 
   /* - - - - - - - - - - - - - - - - - Metric - - - - - - - - - - - - - - - - - */
@@ -59,6 +61,8 @@ public interface StorageService {
   MetricWrapper metricToWrapper(String metricId);
 
   List<Metric> findAllMetricsFromExperiment(String experimentId);
+
+  Optional<Metric> getMetricFromExperimentAndTopic(String experimentId, String topic);
 
   void updateMetric(MetricWrapper metricWrapper);
 

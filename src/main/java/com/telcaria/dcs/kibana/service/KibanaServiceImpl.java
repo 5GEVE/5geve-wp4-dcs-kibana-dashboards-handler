@@ -27,7 +27,7 @@ public class KibanaServiceImpl implements KibanaService{
     private KibanaConnectorService kibanaConnectorService;
     private Generator generator = new Generator();
 
-    @Override
+/*    @Override
     public String createKibanaVisualization(Kpi kpi){
         KibanaDashboardVisualization kibanaVisualization = new KibanaDashboardVisualization();
         kibanaVisualization.setTitle(kpi.getKpiId());
@@ -77,7 +77,7 @@ public class KibanaServiceImpl implements KibanaService{
         } else {
             return null;
         }
-    }
+    }*/
 
     @Override
     public String createKibanaDashboard(Kpi kpi) {
@@ -128,6 +128,9 @@ public class KibanaServiceImpl implements KibanaService{
                 return null;
             }
         }
+        if (!kibanaConnectorService.putKibanaIndexPattern(kpi.getTopic())) {
+            return null;
+        }
         return getUrl(kibanaDashboardDescription.getDashboardId());
     }
 
@@ -177,6 +180,9 @@ public class KibanaServiceImpl implements KibanaService{
                 return null;
             }
         }
+        if (!kibanaConnectorService.putKibanaIndexPattern(metric.getTopic().toLowerCase())) {
+            return null;
+        }
         return getUrl(kibanaDashboardDescription.getDashboardId());
     }
 
@@ -197,8 +203,7 @@ public class KibanaServiceImpl implements KibanaService{
     
 
     private String getUrl(String id) {
-        //return kibanaProperties.getBaseUrl() + "/app/kibana#/dashboard/" + id + "?embed=true&_g=()";
-        return "https://portal.5g-eve.eu/portal/metrics/dashboard/app/kibana#/dashboard/" + id + "?embed=true&_g=()";
+        return kibanaProperties.getDashboardUrl() + "/app/kibana#/dashboard/" + id + "?embed=true&_g=(refreshInterval:(pause:!f,value:10000))";
     }
 
 }

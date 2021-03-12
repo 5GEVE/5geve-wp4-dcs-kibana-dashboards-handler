@@ -26,7 +26,7 @@ class DcsApplicationServiceTests {
   @Autowired
   private StorageService storageService;
 
-/*  @Test
+  @Test
   void createDashboardTestSimple2() {
     log.info("ADD Metric Dashboard Test");
     ValueWrapper valueWrapper = new ValueWrapper();
@@ -47,7 +47,7 @@ class DcsApplicationServiceTests {
     assert dcsService.createDashboardRequest(valueWrapper).equals("OK") : "ERROR";
 
     assert dcsService.deleteDashboardRequest(valueWrapper).equals("OK") : "ERROR 1";
-  }*/
+  }
 
   @Test
   @Order(1)

@@ -130,21 +130,14 @@ public class StorageImpl implements StorageService {
     kpi.setName(kpiWrapper.getName());
     kpi.setTopic(kpiWrapper.getTopic());
     kpi.setUnit(kpiWrapper.getUnit());
-    kpi.setKibanaUser(getUserFromTopic(kpiWrapper.getUser()));
-    kpi.setDashboardId(generateUUID());
+    kpi.setKibanaUser(kpiWrapper.getUser());
+    kpi.setDashboardId(kpiWrapper.getDashboardId());
     kpi.setExperiment(null);
     kpi = kpiRepository.saveAndFlush(kpi);
     log.info("KPI {} saved in database", kpi.getKpiId());
     return kpi.getTopic();
   }
 
-  private String generateUUID(){
-    return UUID.randomUUID().toString();
-  }
-
-  private String getUserFromTopic(String topic){
-    return "user1";
-  }
 
   @Override
   public void removeKpi(String kpiId) {
@@ -210,6 +203,11 @@ public class StorageImpl implements StorageService {
     return kpiRepository.findAllByExperiment_ExpId(experimentId);
   }
 
+  @Override
+  public Optional<Kpi> getKpiFromExperimentAndTopic(String experimentId, String topic) {
+    return kpiRepository.findByTopicAndExperiment_ExpId(topic, experimentId);
+  }
+
   private static boolean isNullOrEmpty(String str) {
     if(str != null && !str.isEmpty())
         return false;
@@ -251,8 +249,8 @@ public class StorageImpl implements StorageService {
     metric.setType(metricWrapper.getType());
     metric.setUnit(metricWrapper.getUnit());
     metric.setExperiment(null);
-    metric.setKibanaUser(getUserFromTopic(metric.getKibanaUser()));
-    metric.setDashboardId(generateUUID());
+    metric.setKibanaUser(metricWrapper.getUser());
+    metric.setDashboardId(metricWrapper.getDashboardId());
     metric = metricRepository.saveAndFlush(metric);
     log.info("Metric {} saved in database", metric.getMetricId());
     return metric.getTopic();
@@ -322,6 +320,11 @@ public class StorageImpl implements StorageService {
   @Override
   public List<Metric> findAllMetricsFromExperiment(String experimentId) {
     return metricRepository.findAllByExperiment_ExpId(experimentId);
+  }
+
+  @Override
+  public Optional<Metric> getMetricFromExperimentAndTopic(String experimentId, String topic) {
+    return metricRepository.findByTopicAndExperiment_ExpId(topic, experimentId);
   }
 
   @Override

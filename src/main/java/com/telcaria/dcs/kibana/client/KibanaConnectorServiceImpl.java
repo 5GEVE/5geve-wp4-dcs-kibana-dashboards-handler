@@ -25,19 +25,22 @@ import java.util.Base64;
 @Transactional
 public class KibanaConnectorServiceImpl implements KibanaConnectorService {
 
-    @Autowired
     private KibanaProperties kibanaProperties;
-    //@Autowired
     private WebClient client;
+
+    @Autowired
+    public KibanaConnectorServiceImpl(KibanaProperties kibanaProperties, WebClient client) {
+        this.kibanaProperties = kibanaProperties;
+        this.client = client;
+    }
 
     public boolean postKibanaObject(String kibanaJsonObject) {
 
         log.debug("Kibana object:\n{}", kibanaJsonObject);
         log.debug("Requesting new object to Kibana");
         try {
-            client = WebClient.create(kibanaProperties.getBaseUrl());
             String response = client.post()
-                    .uri("/api/kibana/dashboards/import")
+                    .uri(kibanaProperties.getBaseUrl() + "/api/kibana/dashboards/import")
                     .accept(MediaType.APPLICATION_JSON)
                     .contentType(MediaType.APPLICATION_JSON)
                     .header("kbn-xsrf", "true")
@@ -54,66 +57,109 @@ public class KibanaConnectorServiceImpl implements KibanaConnectorService {
         }
     }
 
-    public boolean postKibanaIndexPattern(String indexPattern) {
+    public boolean putKibanaIndexPattern(String indexPattern) {
 
         log.debug("Requesting new object to Kibana");
         try {
-            client = WebClient.create(kibanaProperties.getBaseUrl());
-            String response = client.post()
-                    .uri("/api/saved_objects/index-pattern/" + indexPattern)
+            int tries = 0;
+            String indexPatternFields;
+            do {
+                log.debug("Requesting new object to Kibana. Try n {}", tries);
+                indexPatternFields = getIndexPatternFields(indexPattern);
+                tries ++;
+                if (indexPatternFields == null) {
+                    Thread.sleep(5000);
+                }
+            } while (indexPatternFields == null && tries < 3);
+
+            assert indexPatternFields != null;
+            indexPatternFields = indexPatternFields.substring(10, indexPatternFields.length()-1).replaceAll("\"", "\\\\\"");
+
+            String response = client.put()
+                    .uri(kibanaProperties.getBaseUrl() + "/api/saved_objects/index-pattern/index_" + indexPattern)
                     .accept(MediaType.APPLICATION_JSON)
                     .contentType(MediaType.APPLICATION_JSON)
                     .header("kbn-xsrf", "true")
-                    .bodyValue("{\n" +
-                            "  \"attributes\": {\n" +
-                            "    \"title\": \"" + indexPattern + "\"\n" +
-                            "  }\n" +
-                            "}")
+                    .bodyValue("{\"attributes\":{\"title\":\"" + indexPattern + "\",\"fields\":\"" + indexPatternFields + "\"}}")
                     .retrieve()
                     .bodyToMono(String.class)
                     .block();
 
             log.debug("Object successfully created. Response = " + response);
             return true;
-        } catch (WebClientResponseException e) {
-            log.error("Error while trying to create in Kibana. " + e.getResponseBodyAsString());
+        } catch (WebClientResponseException | InterruptedException e) {
+            log.error("Error while trying to create in Kibana. " + e);
             return false;
         }
+    }
+
+    public String getIndexPatternFields(String indexPattern){
+        //http://10.9.8.202:5601/api/index_patterns/_fields_for_wildcard?pattern=uc.4.france_nice.infrastructure_metric.expb_metricid&meta_fields=_source&meta_fields=_id&meta_fields=_type&meta_fields=_index&meta_fields=_score
+        log.debug("getIndexPatternFields {}", indexPattern);
+        try {
+            String response = client.get()
+                    .uri(kibanaProperties.getBaseUrl() + "/api/index_patterns/_fields_for_wildcard?pattern=" + indexPattern + "&meta_fields=_source&meta_fields=_id&meta_fields=_type&meta_fields=_index&meta_fields=_score")
+                    .accept(MediaType.APPLICATION_JSON)
+                    .header("kbn-xsrf", "true")
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            assert response.contains("fields");
+            log.debug("getIndexPatternFields. Response = " + response);
+            return response;
+        } catch (WebClientResponseException e) {
+            log.error("Error while getIndexPatternFields " + e.getResponseBodyAsString());
+            return null;
+        }
+
     }
 
     public boolean setOwner(String dashboardId, String user) {
         //The user can be the userId, the username or the email depending on the configuration given to the kibana keycloak plugin
 
-        log.debug("giveDashboardPermissionToUser {} {}", dashboardId, user);
+        log.debug("setOwner {} {}", dashboardId, user);
         try {
-            client = WebClient.create(kibanaProperties.getBaseUrl());
             String response = client.put()
-                    .uri("/api/saved_objects/dashboard/" + dashboardId + "/permissions/view")
+                    .uri(kibanaProperties.getBaseUrl() + "/api/saved_objects/dashboard/" + dashboardId + "/permissions/view")
                     .accept(MediaType.APPLICATION_JSON)
                     .contentType(MediaType.APPLICATION_JSON)
                     .header("kbn-xsrf", "true")
-                    .bodyValue("{\"users\": [\"" + user + "\"]}")
+                    .bodyValue("{\"users\": " + getStringUsers(user) + "}")
                     .retrieve()
                     .bodyToMono(String.class)
                     .block();
 
-            log.debug("Object successfully created. Response = " + response);
+            log.debug("setOwner successfully. Response = " + response);
             return true;
         } catch (WebClientResponseException e) {
-            log.error("Error while trying to create in Kibana. " + e.getResponseBodyAsString());
+            log.error("Error while trying to setOwner in Kibana. " + e.getResponseBodyAsString());
             return false;
         }
     }
 
+    private String getStringUsers(String users){
+        String[] usersArray = users.split(",");
+        String generatedString = "[";
+
+        for(int i = 0; i < usersArray.length; i++){
+            generatedString = generatedString.concat("\"" + usersArray[i] + "\"");
+            if (i < usersArray.length - 1){
+                generatedString = generatedString.concat(",");
+            }
+        }
+        generatedString = generatedString.concat("]");
+
+        return  generatedString;
+    }
 
     public boolean removeKibanaObject(String kibanaObjectId, String kibanaObjectType) {
 
         log.debug("Kibana object:\n{}", kibanaObjectId);
         log.debug("Removing new object to Kibana");
         try {
-            client = WebClient.create(kibanaProperties.getBaseUrl());
             String response = client.delete()
-                    .uri("/api/saved_objects/" + kibanaObjectType + "/" + kibanaObjectId)
+                    .uri(kibanaProperties.getBaseUrl() + "/api/saved_objects/" + kibanaObjectType + "/" + kibanaObjectId)
                     .header("kbn-xsrf", "true")
                     .retrieve()
                     .bodyToMono(String.class)

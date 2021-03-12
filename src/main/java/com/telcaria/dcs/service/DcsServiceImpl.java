@@ -16,11 +16,19 @@
 
 package com.telcaria.dcs.service;
 
+import com.telcaria.dcs.authentication.service.KeycloakAuthenticationService;
+import com.telcaria.dcs.elasticsearch.service.ElasticsearchService;
+import com.telcaria.dcs.kibana.service.KeycloakService;
 import com.telcaria.dcs.kibana.service.KibanaService;
 import com.telcaria.dcs.nbi.wrapper.ContextWrapper;
 import com.telcaria.dcs.nbi.wrapper.DashboardWrapper;
+import com.telcaria.dcs.nbi.wrapper.TopicWrapper;
+import com.telcaria.dcs.nbi.wrapper.TopicsWrapper;
 import com.telcaria.dcs.nbi.wrapper.UrlWrapper;
 import com.telcaria.dcs.nbi.wrapper.ValueWrapper;
+import com.telcaria.dcs.nbi.wrapper.elasticsearch.ElasticsearchDcsResponseWrapper;
+import com.telcaria.dcs.nbi.wrapper.elasticsearch.ElasticsearchParametersWrapper;
+import com.telcaria.dcs.elasticsearch.wrapper.ElasticsearchResponseWrapper;
 import com.telcaria.dcs.storage.entities.Experiment;
 import com.telcaria.dcs.storage.entities.Kpi;
 import com.telcaria.dcs.storage.entities.Metric;
@@ -32,7 +40,9 @@ import com.telcaria.dcs.storage.wrappers.KpiWrapper;
 import com.telcaria.dcs.storage.wrappers.MetricWrapper;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
+import java.util.UUID;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,15 +57,24 @@ public class DcsServiceImpl implements DcsService {
 
   private StorageService storageService;
   private KibanaService kibanaService;
+  private KeycloakService keycloakService;
+  private KeycloakAuthenticationService keycloakAuthenticationService;
+  private ElasticsearchService elasticsearchService;
 
   @Value("${kibana.enabled}")
   private boolean isKibanaEnabled = true;
 
   @Autowired
   public DcsServiceImpl(StorageService storageService,
-      KibanaService kibanaService) {
+                        KibanaService kibanaService,
+                        KeycloakService keycloakService,
+                        KeycloakAuthenticationService keycloakAuthenticationService,
+                        ElasticsearchService elasticsearchService) {
     this.storageService = storageService;
     this.kibanaService = kibanaService;
+    this.keycloakService = keycloakService;
+    this.keycloakAuthenticationService = keycloakAuthenticationService;
+    this.elasticsearchService = elasticsearchService;
   }
 
   @Override
@@ -84,6 +103,13 @@ public class DcsServiceImpl implements DcsService {
         urlWrappers.add(new UrlWrapper(metric.getDashboardUrl()));
         log.info("Added URL {}", metric.getDashboardUrl());
       }
+
+      if (urlWrappers.size() > 0) {
+        // If there are URLs to show, check Keycloak token, and then continue.
+        log.info("Check Keycloak token for nginx authentication");
+        checkKeycloakToken();
+      }
+
       return new DashboardWrapper(urlWrappers);
     }
 
@@ -137,6 +163,72 @@ public class DcsServiceImpl implements DcsService {
     }
     log.error("Experiment Id does not exist");
     return "Experiment Id does not exist";
+  }
+
+  @Override
+  public TopicsWrapper getTopics(String experimentId, String token) {
+    Optional<Experiment> experimentOp = storageService.getExperiment(experimentId);
+    List<TopicWrapper> topicWrappers = new ArrayList<>();
+    if (experimentOp.isPresent()) {
+      List<Kpi> kpis = storageService.findAllKpisFromExperiment(experimentId);
+      List<Metric> metrics = storageService.findAllMetricsFromExperiment(experimentId);
+
+      // Only returning KPIs and Metrics to which the user is allowed to access, according to the token
+      for (Kpi kpi : kpis) {
+        if (checkIfAnyUserExistsInKeycloakToken(kpi.getKibanaUser().split(","), token)) {
+          topicWrappers.add(new TopicWrapper(kpi.getTopic()));
+          log.info("Added topic {}", kpi.getTopic());
+        } else {
+          log.info("Topic {} not added because users are not included in token", kpi.getTopic());
+        }
+      }
+      for (Metric metric : metrics) {
+        if (checkIfAnyUserExistsInKeycloakToken(metric.getKibanaUser().split(","), token)) {
+          topicWrappers.add(new TopicWrapper(metric.getTopic()));
+          log.info("Added topic {}", metric.getTopic());
+        } else {
+          log.info("Topic {} not added because users are not included in token", metric.getTopic());
+        }
+      }
+      return new TopicsWrapper(topicWrappers);
+    }
+    return new TopicsWrapper(topicWrappers);
+  }
+
+  @Override
+  public ElasticsearchDcsResponseWrapper getDataFromTopic(String experimentId, String topic,
+                                                          String token,
+                                                          ElasticsearchParametersWrapper elasticsearchParametersWrapper) {
+
+    ElasticsearchDcsResponseWrapper response = new ElasticsearchDcsResponseWrapper();
+
+    if (topic.contains(".kpi.")) {
+      Optional<Kpi> kpiOp = storageService.getKpiFromExperimentAndTopic(experimentId, topic);
+      if (kpiOp.isPresent()) {
+        if (checkIfAnyUserExistsInKeycloakToken(kpiOp.get().getKibanaUser().split(","), token)) {
+          response = elasticsearchService.searchData(topic.toLowerCase(Locale.ROOT), elasticsearchParametersWrapper);
+        } else {
+          log.warn("User not allowed to see data of topic {}", topic);
+        }
+      } else {
+        log.warn("Topic not present in DB {}", topic);
+      }
+    } else if (topic.contains("_metric.")) {
+      Optional<Metric> metricOp = storageService.getMetricFromExperimentAndTopic(experimentId, topic);
+      if (metricOp.isPresent()) {
+        if (checkIfAnyUserExistsInKeycloakToken(metricOp.get().getKibanaUser().split(","), token)) {
+          response = elasticsearchService.searchData(topic.toLowerCase(Locale.ROOT), elasticsearchParametersWrapper);
+        } else {
+          log.warn("User not allowed to see data of topic {}", topic);
+        }
+      } else {
+        log.warn("Topic not present in DB {}", topic);
+      }
+    } else {
+      log.warn("Incorrect format for topic name {}", topic);
+    }
+
+    return response;
   }
 
   @Override
@@ -255,6 +347,8 @@ public class DcsServiceImpl implements DcsService {
     metricWrapper.setUnit(contextWrapper.getUnit());
     metricWrapper.setInterval(getIntervalFromString(contextWrapper.getInterval()));
     metricWrapper.setMetricCollectionType(contextWrapper.getMetricCollectionType());
+    metricWrapper.setDashboardId(generateUUID());
+    metricWrapper.setUser(keycloakService.getUsersByUseCase(getUseCaseFromTopic(valueWrapper.getTopic())));
     try {
       metricWrapper.setGraph(GraphType.valueOf(contextWrapper.getGraph()));
     } catch (Exception e){
@@ -275,13 +369,17 @@ public class DcsServiceImpl implements DcsService {
     kpiWrapper.setName(contextWrapper.getName());
     kpiWrapper.setUnit(contextWrapper.getUnit());
     kpiWrapper.setInterval(getIntervalFromString(contextWrapper.getInterval()));
-
+    kpiWrapper.setUser(keycloakService.getUsersByUseCase(getUseCaseFromTopic(valueWrapper.getTopic())));
+    kpiWrapper.setDashboardId(generateUUID());
     try {
       kpiWrapper.setGraph(GraphType.valueOf(contextWrapper.getGraph()));
     } catch (Exception e){
       kpiWrapper.setGraph(GraphType.LINE);
     }
     return kpiWrapper;
+  }
+  private String generateUUID(){
+    return UUID.randomUUID().toString();
   }
 
   private String getUseCaseFromTopic(String topic) {
@@ -308,4 +406,35 @@ public class DcsServiceImpl implements DcsService {
     return -1;
   }
 
+  private void checkKeycloakToken() {
+    // Read token from file
+    String token = keycloakAuthenticationService.extractTokenFromFile();
+
+    // Check if the token is valid
+    if(!keycloakAuthenticationService.checkIfTokenIsActive(token)) {
+      log.info("Token not valid, generating a new one");
+      // Change token
+      String newToken = keycloakAuthenticationService.requestToken();
+      keycloakAuthenticationService.updateTokenInFile(token, newToken);
+    } else {
+      log.info("Token valid");
+    }
+  }
+
+  private boolean checkIfAnyUserExistsInKeycloakToken(String[] users, String token) {
+
+    boolean exists = false;
+    int i = 0;
+    String userFromToken = keycloakAuthenticationService.obtainUserFromToken(token);
+
+    while (!exists && i < users.length) {
+      if (users[i].equals(userFromToken)) {
+        exists = true;
+      } else {
+        i++;
+      }
+    }
+
+    return exists;
+  }
 }

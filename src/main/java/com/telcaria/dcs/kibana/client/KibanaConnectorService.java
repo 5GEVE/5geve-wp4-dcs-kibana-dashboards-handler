@@ -4,10 +4,12 @@ public interface KibanaConnectorService {
 
     boolean postKibanaObject(String kibanaJsonObject);
 
-    boolean postKibanaIndexPattern(String indexPattern);
+    boolean putKibanaIndexPattern(String indexPattern);
 
     boolean removeKibanaObject(String kibanaObjectId, String kibanaObjectType);
 
     boolean setOwner(String dashboardId, String user);
+
+    String getIndexPatternFields(String indexPattern);
 
 }

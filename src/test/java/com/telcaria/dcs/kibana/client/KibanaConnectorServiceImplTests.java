@@ -18,6 +18,11 @@ public class KibanaConnectorServiceImplTests {
     KibanaConnectorService kibanaConnectorService;
 
     @Test
+    void postKibanaIndexPattern(){
+        kibanaConnectorService.putKibanaIndexPattern("uc.4.france_nice.infrastructure_metric.expb_metricid");
+    }
+
+    @Test
     @Order(1)
     void postKibanaObject(){
         String kibanaObject = "{\n" +
@@ -67,6 +72,8 @@ public class KibanaConnectorServiceImplTests {
         boolean ok = kibanaConnectorService.removeKibanaObject(kibanaObjectid, kibanaObjectType);
         assertTrue(ok);
     }
+
+
 
 
 }
