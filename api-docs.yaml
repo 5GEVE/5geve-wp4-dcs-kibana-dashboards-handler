@@ -3,7 +3,7 @@ info:
   title: OpenAPI definition
   version: v0
 servers:
-- url: http://127.0.0.1:8080
+- url: "http://10.5.7.22:8080"
   description: Generated server url
 paths:
   /storage/experiment/{experimentId}:
@@ -23,7 +23,7 @@ paths:
           content:
             '*/*':
               schema:
-                $ref: '#/components/schemas/ExperimentWrapper'
+                $ref: "#/components/schemas/ExperimentWrapper"
     delete:
       tags:
       - storage-controller
@@ -58,7 +58,7 @@ paths:
           content:
             '*/*':
               schema:
-                $ref: '#/components/schemas/KpiWrapper'
+                $ref: "#/components/schemas/KpiWrapper"
     delete:
       tags:
       - storage-controller
@@ -93,7 +93,7 @@ paths:
           content:
             '*/*':
               schema:
-                $ref: '#/components/schemas/MetricWrapper'
+                $ref: "#/components/schemas/MetricWrapper"
     delete:
       tags:
       - storage-controller
@@ -111,6 +111,24 @@ paths:
             '*/*':
               schema:
                 type: string
+  /storage/experiment:
+    post:
+      tags:
+      - storage-controller
+      operationId: createExperiment
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExperimentWrapper"
+        required: true
+      responses:
+        "200":
+          description: default response
+          content:
+            '*/*':
+              schema:
+                type: string
   /storage/kpi:
     post:
       tags:
@@ -120,7 +138,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/KpiWrapper'
+              $ref: "#/components/schemas/KpiWrapper"
         required: true
       responses:
         "200":
@@ -138,7 +156,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/MetricWrapper'
+              $ref: "#/components/schemas/MetricWrapper"
         required: true
       responses:
         "200":
@@ -147,16 +165,16 @@ paths:
             '*/*':
               schema:
                 type: string
-  /storage/experiment:
+  /portal/dcs/dashboard:
     post:
       tags:
-      - storage-controller
-      operationId: createExperiment
+      - dcs-controller
+      operationId: createDashboard
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ExperimentWrapper'
+              $ref: "#/components/schemas/DcsRequestWrapper"
         required: true
       responses:
         "200":
@@ -165,6 +183,79 @@ paths:
             '*/*':
               schema:
                 type: string
+    delete:
+      tags:
+      - dcs-controller
+      operationId: deleteDashboard
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DcsRequestWrapper"
+        required: true
+      responses:
+        "200":
+          description: default response
+          content:
+            '*/*':
+              schema:
+                type: string
+  /portal/dcs/topics/{experimentId}:
+    get:
+      tags:
+      - dcs-controller
+      operationId: getTopics
+      parameters:
+      - name: experimentId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: Authorization
+        in: header
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: default response
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TopicsWrapper"
+  /portal/dcs/topics/{experimentId}/{topic}:
+    get:
+      tags:
+      - dcs-controller
+      operationId: getDataFromTopic
+      parameters:
+      - name: experimentId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: topic
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: Authorization
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: elasticsearchParametersWrapper
+        in: query
+        required: true
+        schema:
+          $ref: "#/components/schemas/ElasticsearchParametersWrapper"
+      responses:
+        "200":
+          description: default response
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ElasticsearchDcsResponseWrapper"
   /portal/dcs/dashboard/{experimentId}:
     get:
       tags:
@@ -182,42 +273,7 @@ paths:
           content:
             '*/*':
               schema:
-                $ref: '#/components/schemas/DashboardWrapper'
-  /portal/dcs/dashboard:
-    post:
-      tags:
-      - dcs-controller
-      operationId: createDashboard
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DcsRequestWrapper'
-        required: true
-      responses:
-        "200":
-          description: default response
-          content:
-            '*/*':
-              schema:
-                type: string
-    delete:
-      tags:
-      - dcs-controller
-      operationId: deleteDashboard
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DcsRequestWrapper'
-        required: true
-      responses:
-        "200":
-          description: default response
-          content:
-            '*/*':
-              schema:
-                type: string
+                $ref: "#/components/schemas/DashboardWrapper"
 components:
   schemas:
     ExperimentWrapper:
@@ -233,12 +289,12 @@ components:
           uniqueItems: true
           type: array
           items:
-            $ref: '#/components/schemas/KpiWrapper'
+            $ref: "#/components/schemas/KpiWrapper"
         metrics:
           uniqueItems: true
           type: array
           items:
-            $ref: '#/components/schemas/MetricWrapper'
+            $ref: "#/components/schemas/MetricWrapper"
     KpiWrapper:
       type: object
       properties:
@@ -261,6 +317,10 @@ components:
           - metric
           - gauge
         dashboardUrl:
+          type: string
+        dashboardId:
+          type: string
+        user:
           type: string
         expId:
           type: string
@@ -294,19 +354,11 @@ components:
           - gauge
         dashboardUrl:
           type: string
-        expId:
+        dashboardId:
           type: string
-    DashboardWrapper:
-      type: object
-      properties:
-        urls:
-          type: array
-          items:
-            $ref: '#/components/schemas/UrlWrapper'
-    UrlWrapper:
-      type: object
-      properties:
-        url:
+        user:
+          type: string
+        expId:
           type: string
     ContextWrapper:
       type: object
@@ -331,12 +383,12 @@ components:
         records:
           type: array
           items:
-            $ref: '#/components/schemas/RecordWrapper'
+            $ref: "#/components/schemas/RecordWrapper"
     RecordWrapper:
       type: object
       properties:
         value:
-          $ref: '#/components/schemas/ValueWrapper'
+          $ref: "#/components/schemas/ValueWrapper"
     ValueWrapper:
       type: object
       properties:
@@ -347,4 +399,64 @@ components:
         action:
           type: string
         context:
-          $ref: '#/components/schemas/ContextWrapper'
+          $ref: "#/components/schemas/ContextWrapper"
+    TopicWrapper:
+      type: object
+      properties:
+        topic:
+          type: string
+    TopicsWrapper:
+      type: object
+      properties:
+        topics:
+          type: array
+          items:
+            $ref: "#/components/schemas/TopicWrapper"
+    ElasticsearchParametersWrapper:
+      type: object
+      properties:
+        from:
+          maximum: 9999
+          minimum: 0
+          type: integer
+          format: int32
+        size:
+          maximum: 10000
+          minimum: 1
+          type: integer
+          format: int32
+    ElasticsearchDataWrapper:
+      type: object
+      properties:
+        device_id:
+          type: string
+        timestamp:
+          type: string
+        unit:
+          type: string
+        device_timestamp:
+          type: string
+        context:
+          type: string
+        value:
+          type: number
+          format: float
+    ElasticsearchDcsResponseWrapper:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ElasticsearchDataWrapper"
+    DashboardWrapper:
+      type: object
+      properties:
+        urls:
+          type: array
+          items:
+            $ref: "#/components/schemas/UrlWrapper"
+    UrlWrapper:
+      type: object
+      properties:
+        url:
+          type: string
