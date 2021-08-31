@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>com.telcaria</groupId>
 	<artifactId>dcs</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.2.1-SNAPSHOT</version>
 	<name>DCS</name>
 	<description>Data Collection and Storage</description>
 

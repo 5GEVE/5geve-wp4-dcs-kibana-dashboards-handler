@@ -128,7 +128,7 @@ public class KibanaServiceImpl implements KibanaService{
                 return null;
             }
         }
-        if (!kibanaConnectorService.putKibanaIndexPattern(kpi.getTopic())) {
+        if (!kibanaConnectorService.putKibanaIndexPattern(kpi.getTopic().toLowerCase())) {
             return null;
         }
         return getUrl(kibanaDashboardDescription.getDashboardId());
